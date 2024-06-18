@@ -1,0 +1,1 @@
+export const CAMPAIGN_DURATION_IN_MS = 7 * 24 * 60 * 60 * 1_000 // days * hours * minutes * secs * ms
