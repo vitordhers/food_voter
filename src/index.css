@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+#root {
+  width: 100vw;
+}
+
+.logo {
+  height: 50px;
+  width: auto;
+}
+
+.metamask-logo {
+  height: 30px;
+  width: auto;
+}
+
+.address {
+  transition: 300ms ease-in-out;
+}
+
+hr {
+  transition: 300ms ease-in-out;
+}
+
+.title {
+  width: 320px;
+  height: 190px;
+}
