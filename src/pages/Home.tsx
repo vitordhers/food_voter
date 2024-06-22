@@ -1,6 +1,6 @@
 import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { FC, MutableRefObject, useEffect, useRef } from "react";
+import { FC, MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { useBallotsContext } from "../hooks/useBallotsContext";
 import { Ballot } from "../components/Ballot";
 
@@ -9,12 +9,21 @@ export const Home: FC = () => {
     loadingBallotsAddresses,
     ballotsAddresses,
     setPagination,
-    allAddressPaginated,
+    pagination,
   } = useBallotsContext();
 
   const observerRef = useRef<IntersectionObserver>();
 
   const anchorRef: MutableRefObject<HTMLDivElement | null> = useRef(null);
+
+  const allAddressPaginated = useMemo(
+    () =>
+      pagination.currentPageIndex !== undefined &&
+      pagination.maxPageIndex !== undefined
+        ? pagination.currentPageIndex > pagination.maxPageIndex
+        : false,
+    [pagination]
+  );
 
   useEffect(() => {
     if (!anchorRef || !anchorRef.current || !ballotsAddresses.length) return;
@@ -22,14 +31,20 @@ export const Home: FC = () => {
 
     observerRef.current = new IntersectionObserver(
       (entries, observer) => {
-        if (allAddressPaginated) {
-          observer.unobserve(loader);
-          observer.disconnect();
-          return;
-        }
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setPagination;
+            if (allAddressPaginated) {
+              observer.unobserve(loader);
+              observer.disconnect();
+              return;
+            }
+            setPagination((p) => ({
+              ...p,
+              currentPageIndex:
+                p.currentPageIndex === undefined
+                  ? undefined
+                  : p.currentPageIndex + 1,
+            }));
           }
         });
       },
@@ -69,11 +84,17 @@ export const Home: FC = () => {
           Loading Ballots
         </div>
       )}
-      <div
-        ref={anchorRef}
-        id="pagination-anchor"
-        className="w-full min-h-10"
-      ></div>
+      {allAddressPaginated ? (
+        <div role="alert" className="alert">
+          <span>All ballots have been loaded.</span>
+        </div>
+      ) : (
+        <div
+          ref={anchorRef}
+          id="pagination-anchor"
+          className="w-full min-h-10"
+        ></div>
+      )}
     </div>
   );
 };

@@ -19,6 +19,7 @@ import {
   faClock,
   faThumbsUp,
   faThumbsDown,
+  faCheckToSlot,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useBallotsContext } from "../hooks/useBallotsContext";
@@ -84,7 +85,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
   }, []);
 
   useEffect(() => {
-    if (!wasViewed) return;
+    if (!wasViewed || !selectedAccountAddress) return;
     contractRef.current = instantiateBallot(address);
 
     if (!contractRef.current) return;
@@ -105,15 +106,19 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
       );
     });
 
+    subscription.on("error", (error) => {
+      console.log("ballot subscription error", error);
+    });
+
     setLoading(true);
 
     contractRef.current.methods
-      .getData()
-      .call<DeserializedBallotData>()
+      .getData({ from: selectedAccountAddress })
+      .call<DeserializedBallotData>({ from: selectedAccountAddress })
       .then((data) => setData(new BallotImpl(address, data)))
       .catch((error) => console.error("Ballot", { error }))
       .finally(() => setLoading(false));
-  }, [instantiateBallot, address, setData, wasViewed]);
+  }, [instantiateBallot, address, setData, wasViewed, selectedAccountAddress]);
 
   const onCollapseChange = useCallback(
     (open: boolean) => setAreDetailsOpen(open),
@@ -199,7 +204,11 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
                       className="text-warning text-xl"
                       icon={faEquals}
                     />
-                    <h2 className="card-title text-warning">It's a tie!</h2>
+                    <h2 className="card-title text-warning">
+                      {data.results.total === 0
+                        ? "Cast the first vote!"
+                        : "It's a tie!"}
+                    </h2>
                   </div>
                 )}
                 {data.state === BallotState.PreliminaryRejected && (
@@ -331,8 +340,8 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
                       </div>
                     </>
                   ) : (
-                    <div role="alert" className="alert alert-success">
-                      <FontAwesomeIcon icon={faCheckCircle} />
+                    <div role="alert" className="flex alert alert-success p-2">
+                      <FontAwesomeIcon icon={faCheckToSlot} />
                       <span>Your vote has been cast already.</span>
                     </div>
                   )}

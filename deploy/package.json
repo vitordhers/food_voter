@@ -9,9 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bip39": "^3.1.0",
+    "dotenv": "^16.4.5",
     "ethers": "^6.13.1",
-    "hdkey": "^2.1.0",
-    "web3": "^4.10.0"
+    "web3": "^4.10.0",
+    "web3-eth": "^4.8.0",
+    "web3-eth-accounts": "^4.1.2"
   }
 }

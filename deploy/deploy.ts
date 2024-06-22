@@ -1,6 +1,6 @@
 import { Wallet } from "ethers";
-import { Web3 } from "web3";
-import BallotsManager from "../out/BallotsManager.sol/BallotsManager.json";
+import { Web3, } from "web3";
+import BallotsManager from "../forge/out/BallotsManager.sol/BallotsManager.json";
 import * as dotenv from "dotenv";
 
 const deploy = async () => {
@@ -12,6 +12,7 @@ const deploy = async () => {
   const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
   const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
 

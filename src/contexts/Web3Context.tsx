@@ -12,6 +12,7 @@ import {
 import { Web3ConnectionStatus } from "../enum/web3-connection-status.enum";
 import {
   Contract,
+  HttpProvider,
   ProviderConnectInfo,
   Web3,
   Web3Eip1193ProviderEventCallback,
@@ -32,10 +33,8 @@ export interface Web3ContextType {
   web3Status: Web3ConnectionStatus;
   connectToMetaMask: () => Promise<void>;
   selectAddressByIndex: (i: number) => void;
-  ballotsManagerRef: MutableRefObject<
-    Contract<typeof BallotsManager.abi> | undefined
-  >;
-  getWeb3Provider: () => Web3<RegisteredSubscription> | undefined;
+  ballotsManagerRef: MutableRefObject<Contract<typeof BallotsManager.abi>>;
+  getWeb3Provider: () => Web3<RegisteredSubscription>;
 }
 
 export const Web3Context = createContext<Web3ContextType | undefined>(
@@ -45,11 +44,21 @@ export const Web3Context = createContext<Web3ContextType | undefined>(
 export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
   children,
 }) => {
-  const web3ProviderRef = useRef<Web3>();
+  const web3ProviderRef = useRef<Web3>(
+    new Web3(new HttpProvider(import.meta.env.VITE_PROVIDER_RPC as string))
+  );
 
   const ballotsManagerRef: MutableRefObject<
-    Contract<typeof BallotsManager.abi> | undefined
-  > = useRef<Contract<typeof BallotsManager.abi>>();
+    Contract<typeof BallotsManager.abi>
+  > = useRef<Contract<typeof BallotsManager.abi>>(
+    instantiateContract(
+      web3ProviderRef.current,
+      BallotsManager.abi,
+      import.meta.env.VITE_BALLOTS_MANAGER_ADDR
+    )
+  );
+
+  const [isMetaMaskConnected, setIsMetaMaskConnected] = useState(false);
 
   const [selectedAccountAddress, setSelectedAccountAddress] = useState<
     string | undefined
@@ -76,7 +85,7 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
   useEffect(() => {
     if (!web3ProviderRef || !web3ProviderRef.current) return;
     const provider = web3ProviderRef.current.provider;
-    if (!provider) return;
+    if (!provider || !isMetaMaskConnected) return;
 
     const accountsChangedCb: Web3Eip1193ProviderEventCallback<string[]> = (
       accounts: string[]
@@ -90,18 +99,26 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
       console.log("connect cb", chainId);
     };
 
+    const chainChangedCb: Web3Eip1193ProviderEventCallback<string> = (
+      chainId
+    ) => {
+      console.log("connect cb", chainId);
+    };
+
     provider.on("accountsChanged", accountsChangedCb);
     provider.on("connect", connectCb);
+    provider.on("chainChanged", chainChangedCb);
 
     return () => {
-      provider.removeListener("accountsChanged", accountsChangedCb);
-      provider.removeListener("connect", connectCb);
+      // provider.removeListener("accountsChanged", accountsChangedCb);
+      // provider.removeListener("connect", connectCb);
+      // provider.removeListener("chainChanged", chainChangedCb);
     };
-  }, [web3ProviderRef, web3ProviderRef.current]);
+  }, [web3ProviderRef, isMetaMaskConnected]);
 
   const getWeb3Provider = useCallback(
     () => web3ProviderRef.current,
-    [web3ProviderRef, web3ProviderRef.current]
+    [web3ProviderRef]
   );
 
   const connectToMetaMask = useCallback(async () => {
@@ -114,6 +131,7 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
     try {
       setWeb3Status(Web3ConnectionStatus.Connecting);
       await eth.request({ method: "eth_requestAccounts" });
+      setIsMetaMaskConnected(true);
       web3ProviderRef.current = new Web3(eth);
       const web3 = web3ProviderRef.current;
 
@@ -135,6 +153,7 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
 
       setWeb3Status(Web3ConnectionStatus.Accepted);
     } catch (error) {
+      setIsMetaMaskConnected(false);
       if (error instanceof Error && "code" in error) {
         if (error.code === -32002) {
           return;
