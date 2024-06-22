@@ -38,7 +38,7 @@ export const Navbar = () => {
           </div>
         </Link>
       </div>
-      <div className="flex-none hidden lg:block">
+      <div className="flex-none">
         <ul className="menu menu-horizontal flex gap-x-2 justify-center items-end">
           <li>
             {web3Status !== Web3ConnectionStatus.Accepted ? (
@@ -113,7 +113,7 @@ export const Navbar = () => {
               </details>
             )}
           </li>
-          <li>
+          <li className="hidden lg:block">
             <button className="btn btn-primary" onClick={openNewBallotModal}>
               <FontAwesomeIcon icon={faCheckToSlot} />
               Start a Ballot

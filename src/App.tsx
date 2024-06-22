@@ -10,6 +10,8 @@ import {
 import { Home } from "./pages/Home";
 import { MyBallots } from "./pages/MyBallots";
 import { BallotsContextProvider } from "./contexts/BallotsContext";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCheckToSlot } from "@fortawesome/free-solid-svg-icons";
 
 function App() {
   return (
@@ -40,10 +42,10 @@ function App() {
               ></label>
               <ul className="menu p-4 w-80 min-h-full bg-base-200">
                 <li>
-                  <a>Sidebar Item 1</a>
-                </li>
-                <li>
-                  <a>Sidebar Item 2</a>
+                  <label htmlFor="new-ballot" className="btn btn-primary">
+                    <FontAwesomeIcon icon={faCheckToSlot} />
+                    Start a Ballot
+                  </label>
                 </li>
               </ul>
             </div>
