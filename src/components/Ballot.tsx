@@ -33,7 +33,10 @@ import BallotContract from "../assets/abi/Ballot.json";
 import { Contract, PayableCallOptions } from "web3";
 import { fireToast } from "../functions/fire-toast.function";
 import { useWeb3Context } from "../hooks/useWeb3Context";
-import { DeserializedVotingResults } from "../interfaces/voting-results.interface";
+import {
+  DeserializedVotingResults,
+  VotingResults,
+} from "../interfaces/voting-results.interface";
 
 export interface CampaignProps {
   address: string;
@@ -85,25 +88,28 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
 
     if (!contractRef.current) return;
     const subscription = contractRef.current.events.VoteCast();
-    contractRef.current.methods
-      .returnCaller()
-      .call()
-      .then((data) => console.log("@@@@ CALLER DATA", data));
 
     subscription.on("data", async (data) => {
-      const results = data.returnValues["results"] as DeserializedVotingResults;
+      const { accept, reject, total } = data.returnValues[
+        "results"
+      ] as DeserializedVotingResults;
+      const votingResults: VotingResults = {
+        accept: Number(accept),
+        reject: Number(reject),
+        total: Number(total),
+      };
 
-      console.log("@@@@@@@@@", { results });
+      setData((d) =>
+        d ? ({ ...d, results: votingResults } as BallotImpl) : undefined
+      );
     });
+
     setLoading(true);
 
     contractRef.current.methods
       .getData()
       .call<DeserializedBallotData>()
-      .then((data) => {
-        console.log("@@@", data);
-        setData(new BallotImpl(address, data));
-      })
+      .then((data) => setData(new BallotImpl(address, data)))
       .catch((error) => console.error("Ballot", { error }))
       .finally(() => setLoading(false));
   }, [instantiateBallot, address, setData, wasViewed]);

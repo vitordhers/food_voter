@@ -123,11 +123,6 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
         import.meta.env.VITE_BALLOTS_MANAGER_ADDR
       );
 
-      console.log(
-        "@@ import.meta.env.VITE_BALLOTS_MANAGER_ADDR",
-        import.meta.env.VITE_BALLOTS_MANAGER_ADDR
-      );
-
       const accounts = await web3.eth.getAccounts();
       setWalletAccounts(accounts);
       // sets to default account, falls back to first available account, if any

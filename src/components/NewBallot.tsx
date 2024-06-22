@@ -53,11 +53,11 @@ export const NewBallot = () => {
 
       try {
         setIsCreatingNewBallot(true);
-        
+
         const tx: PayableCallOptions = {
           from: selectedAccountAddress,
         };
-        console.log("@@tx from", tx);
+
         const txResult = await contract.methods
           .createBallot(title, description)
           .send(tx);
