@@ -5,7 +5,12 @@ import { useBallotsContext } from "../hooks/useBallotsContext";
 import { Ballot } from "../components/Ballot";
 
 export const Home: FC = () => {
-  const { loadingBallotsAddresses, ballotsAddresses } = useBallotsContext();
+  const {
+    loadingBallotsAddresses,
+    ballotsAddresses,
+    setPagination,
+    allAddressPaginated,
+  } = useBallotsContext();
 
   const observerRef = useRef<IntersectionObserver>();
 
@@ -16,11 +21,15 @@ export const Home: FC = () => {
     const loader = anchorRef.current;
 
     observerRef.current = new IntersectionObserver(
-      (entries) => {
-        console.log({ entries });
+      (entries, observer) => {
+        if (allAddressPaginated) {
+          observer.unobserve(loader);
+          observer.disconnect();
+          return;
+        }
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            console.log("Element is in view:", entry.target);
+            setPagination;
           }
         });
       },
@@ -36,8 +45,9 @@ export const Home: FC = () => {
     return () => {
       if (!observerRef || !observerRef.current || loader) return;
       observerRef.current.unobserve(loader);
+      observerRef.current.disconnect();
     };
-  }, [ballotsAddresses]);
+  }, [allAddressPaginated, ballotsAddresses, setPagination]);
 
   return (
     <div className="container mx-auto mt-6">

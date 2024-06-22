@@ -79,6 +79,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
     return () => {
       if (!observerRef || !observerRef.current || !loader) return;
       observerRef.current.unobserve(loader);
+      observerRef.current.disconnect();
     };
   }, []);
 

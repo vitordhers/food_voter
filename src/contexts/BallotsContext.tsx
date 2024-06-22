@@ -1,6 +1,8 @@
 import {
+  Dispatch,
   FC,
   ReactNode,
+  SetStateAction,
   createContext,
   useCallback,
   useEffect,
@@ -25,6 +27,8 @@ export interface BallotsContextType {
   instantiateBallot: (
     address: string
   ) => Contract<typeof Ballot.abi> | undefined;
+  setPagination: Dispatch<SetStateAction<Pagination>>;
+  allAddressPaginated: boolean;
 }
 
 export const BallotsContext = createContext<BallotsContextType | undefined>(
@@ -51,11 +55,12 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     page: undefined,
     total: 0,
   });
-  // const [currentPage, setCurrentPage] = useState<number | undefined>(0);
 
-  // const paginateBallotsAddresses = useCallback(async (startAt: number) => {
-  //   return [] as string[];
-  // }, []);
+  useEffect(() => {
+    const { total, page } = pagination;
+    if (page === undefined || ballotsAddresses.length < total) return;
+    setAllAddressesPaginated(true);
+  }, [pagination, ballotsAddresses]);
 
   useEffect(() => {
     const contract = ballotsManagerRef?.current;
@@ -92,10 +97,9 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
 
     const runPagination = async () => {
       const { page, total } = pagination;
-      if (page === undefined || total === 0) return;
+      if (page === undefined || total === 0 || allAddressPaginated) return;
 
       const startAt = page * PAGINATION_SIZE;
-      console.log("@", { startAt });
       try {
         const newAddresses = await ballotsManager.methods
           .paginateBallots(startAt)
@@ -108,7 +112,8 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     };
 
     runPagination();
-  }, [pagination.page, ballotsManagerRef]);
+    // updating just total shouldn't trigger pagination
+  }, [allAddressPaginated, pagination.page, ballotsManagerRef]);
 
   // initial pagination
   useEffect(() => {
@@ -124,7 +129,6 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
           .call<bigint>();
 
         const totalBallots = Number(totalBallotsBN);
-        console.log({ totalBallots });
         if (!totalBallots) return;
 
         setPagination({ total: totalBallots, page: 0 });
@@ -174,16 +178,20 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
 
   const value = useMemo(
     () => ({
+      allAddressPaginated,
       instantiateBallot,
       loadingBallotsAddresses,
       getBallotsManager,
       ballotsAddresses,
+      setPagination,
     }),
     [
+      allAddressPaginated,
       instantiateBallot,
       loadingBallotsAddresses,
       getBallotsManager,
       ballotsAddresses,
+      setPagination,
       // ballotsAddresses.length,
     ]
   );
