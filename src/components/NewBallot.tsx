@@ -61,6 +61,8 @@ export const NewBallot = () => {
           gasPrice: String(gasPrice),
         };
 
+        const estimatedGas = await provider.eth.estimateGas(tx);
+        console.log({ estimatedGas });
         const txResult = await contract.methods
           .createBallot(title, description)
           .send(tx);

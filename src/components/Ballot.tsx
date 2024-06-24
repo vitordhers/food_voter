@@ -31,13 +31,14 @@ import { BallotState } from "../enum/ballot-state.enum";
 import { BallotTimeline } from "./BallotTimeline";
 import { VotingTerm } from "../enum/voting-term.enum";
 import BallotContract from "../assets/abi/Ballot.json";
-import { Contract, PayableCallOptions } from "web3";
+import { Contract, EventLog, PayableCallOptions } from "web3";
 import { fireToast } from "../functions/fire-toast.function";
 import { useWeb3Context } from "../hooks/useWeb3Context";
 import {
   DeserializedVotingResults,
   VotingResults,
 } from "../interfaces/voting-results.interface";
+import { getBallotState } from "../functions/get-ballot-state.function";
 
 export interface CampaignProps {
   address: string;
@@ -93,39 +94,52 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
 
     if (!contractRef.current) return;
     const subscription = contractRef.current.events.VoteCast();
-
-    subscription.on("data", async (data) => {
-      const { accept, reject, total } = data.returnValues[
+    const dataCb = async (_data: EventLog) => {
+      if (!_data) return;
+      const { accept, reject, total } = _data.returnValues[
         "results"
       ] as DeserializedVotingResults;
-      console.log("@@@ DATA CB", { accept, reject, total });
-      const votingResults: VotingResults = {
+      const updatedResults: VotingResults = {
         accept: Number(accept),
         reject: Number(reject),
         total: Number(total),
       };
 
-      setData((d) =>
-        d ? ({ ...d, results: votingResults } as BallotImpl) : undefined
-      );
-    });
+      const updatedState = getBallotState(VotingTerm.Open, updatedResults);
 
-    subscription.on("error", (error) => {
+      setData((d) =>
+        d
+          ? ({
+              ...d,
+              results: updatedResults,
+              state: updatedState,
+            } as BallotImpl)
+          : undefined
+      );
+    };
+    subscription.on("data", dataCb);
+    const errorCb = (error: Error) => {
       console.log("ballot subscription error", error);
-    });
+    };
+    subscription.on("error", errorCb);
 
     setLoading(true);
 
     contractRef.current.methods
       .getData({ from: selectedAccountAddress })
       .call<DeserializedBallotData>({ from: selectedAccountAddress })
-      .then((data) =>
+      .then((_data) =>
         !controller.signal.aborted
-          ? setData(new BallotImpl(address, data))
+          ? setData(new BallotImpl(address, _data))
           : undefined
       )
       .catch((error) => console.error("Ballot", { error }))
       .finally(() => setLoading(false));
+
+    return () => {
+      subscription.off("data", dataCb);
+      subscription.off("error", errorCb);
+    };
   }, [instantiateBallot, address, setData, wasViewed, selectedAccountAddress]);
 
   const onCollapseChange = useCallback(

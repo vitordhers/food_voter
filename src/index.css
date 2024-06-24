@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-#root {
-  width: 100vw;
-}
-
 .logo {
   height: 50px;
   width: auto;

@@ -79,7 +79,7 @@ export const Navbar = () => {
                     {selectedAccountAddress}
                   </span>
                 </summary>
-                <ul className="p-2 bg-base-100 rounded-t-none w-lg">
+                <ul className="p-2 bg-base-100 rounded-t-none w-lg z-10">
                   <h2 className="menu-title">Select Account</h2>
                   {walletAccounts.map((addr, i) => (
                     <div
