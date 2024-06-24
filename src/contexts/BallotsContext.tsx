@@ -10,10 +10,8 @@ import {
   useState,
 } from "react";
 import { Contract } from "web3";
-import BallotsManager from "../assets/abi/BallotsManager.json";
 import Ballot from "../assets/abi/Ballot.json";
 import { useWeb3Context } from "../hooks/useWeb3Context";
-// import { BallotData } from "../interfaces/ballot-data.interface";
 import { instantiateContract } from "../functions/instantiate-contract.function";
 
 interface BallotsContextProviderProps {
@@ -27,7 +25,6 @@ interface Pagination {
 
 export interface BallotsContextType {
   loadingBallotsAddresses: boolean;
-  getBallotsManager: () => Contract<typeof BallotsManager.abi> | undefined;
   ballotsAddresses: string[];
   instantiateBallot: (
     address: string
@@ -45,8 +42,7 @@ const PAGINATION_SIZE = 5;
 export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
   children,
 }) => {
-  const { ballotsManagerRef, getWeb3Provider, selectedAccountAddress } =
-    useWeb3Context();
+  const { ballotsManager, selectedAccountAddress, web3 } = useWeb3Context();
 
   const [ballotsAddresses, setBallotsAddresses] = useState<string[]>([]);
 
@@ -57,19 +53,15 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
   });
 
   useEffect(() => {
-    const contract = ballotsManagerRef?.current;
-    if (!ballotsManagerRef || !contract || !selectedAccountAddress) return;
+    if (!ballotsManager || !selectedAccountAddress) return;
 
-    const subscription = contract.events.NewBallot();
+    const subscription = ballotsManager.events.NewBallot();
 
     subscription.on("data", async (data) => {
       const id = data.returnValues["id"] as string;
 
       try {
-        const _contract = ballotsManagerRef?.current;
-        if (!ballotsManagerRef || !_contract) return;
-
-        const address = await _contract.methods
+        const address = await ballotsManager.methods
           .ballotIdAddressMap(id)
           .call<string>({ from: selectedAccountAddress });
 
@@ -83,16 +75,22 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
       console.log("subscription error", { error })
     );
     subscription.on("connected", (connected) => console.log({ connected }));
-  }, [selectedAccountAddress, ballotsManagerRef]);
+  }, [selectedAccountAddress, ballotsManager]);
 
   useEffect(() => {
     const controller = new AbortController();
 
+    if (!ballotsManager || !selectedAccountAddress) return;
+
     const runPagination = async () => {
-      const ballotsManager = ballotsManagerRef.current;
       const { currentPageIndex, maxPageIndex } = pagination;
 
-      if (currentPageIndex === undefined || maxPageIndex === undefined) return;
+      if (
+        currentPageIndex === undefined ||
+        maxPageIndex === undefined ||
+        !selectedAccountAddress
+      )
+        return;
       if (currentPageIndex > maxPageIndex) return;
       setLoadingBallotsAddresses(true);
 
@@ -116,15 +114,14 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     return () => {
       controller.abort();
     };
-  }, [selectedAccountAddress, pagination, ballotsManagerRef]);
+  }, [selectedAccountAddress, pagination, ballotsManager]);
 
   // initial pagination
   useEffect(() => {
     const controller = new AbortController();
+    if (!ballotsManager || !selectedAccountAddress) return;
 
     const fetchBallotsLength = async () => {
-      const ballotsManager = ballotsManagerRef.current;
-      if (!ballotsManager) return;
       try {
         if (controller.signal.aborted) return;
         setLoadingBallotsAddresses(true);
@@ -157,29 +154,19 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     return () => {
       controller.abort();
     };
-  }, [selectedAccountAddress, ballotsManagerRef]);
-
-  const getBallotsManager = useCallback(
-    () => ballotsManagerRef.current,
-    [ballotsManagerRef]
-  );
+  }, [selectedAccountAddress, ballotsManager]);
 
   const instantiateBallot = useCallback(
     (address: string) => {
-      const web3 = getWeb3Provider();
-
-      if (!web3) return;
-
       return instantiateContract(web3, Ballot.abi, address);
     },
-    [getWeb3Provider]
+    [web3]
   );
 
   const value = useMemo(
     () => ({
       instantiateBallot,
       loadingBallotsAddresses,
-      getBallotsManager,
       ballotsAddresses,
       setPagination,
       pagination,
@@ -187,7 +174,6 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     [
       instantiateBallot,
       loadingBallotsAddresses,
-      getBallotsManager,
       ballotsAddresses,
       setPagination,
       pagination,

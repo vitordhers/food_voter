@@ -24,3 +24,11 @@ hr {
   width: 320px;
   height: 190px;
 }
+
+.title {
+  .card-title {
+    color: #fff !important;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
+      1px 1px 0 #000;
+  }
+}

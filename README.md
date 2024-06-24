@@ -1,9 +1,43 @@
 ## Food voter app
 
-# Setup
+This app aims to solve food controversial topics by allowing users to create voting ballots regarding controversial topics on food.
+Each ballot has title and description, setting ground for a topic that can be either accepted or rejected. For instance, "Does 🍍 pineapple belong in 🍕 pizza?".
+Users can create as many ballots as they wish (assuming they have the funds to do so), but only one vote is allowed to be cast per user. Votes can be either "accept" or "reject".
+After 7 days, the ballot is closed, and we have final results.
+
+# Before running
+
+1. Make sure to have [MetaMask Wallet](https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=en) extension installed in your browser.
+
+
+# Test Setup
+
+1. In your browser, make sure to select **Polygon Amoy Testnet** in your `MetaMask` wallet, by clicking at `MetaMask` icon, then click at the top left to chose network, and insert:
+
+**Name**: Polygon Amoy Testnet
+**New RPC URL**: https://rpc-amoy.polygon.technology/
+**Chain ID**: 80002
+**Currency symbol**: MATIC
+**Block Explorer URL**: https://amoy.polygonscan.com/
+then save.
+
+2. In order to create ballots and cast votes, make sure to have funds in your wallet. Funds can be easily and freely obtrained via [this faucet](https://faucet.polygon.technology/). Make sure, in that page, to select `Polygon PoS (Amoy)` network, and to provide your wallet correct address in `Wallet Address` field.
+
+# Running test
+
+1. Go to the root folder and run: 
+```shell
+$ npm run prod
+``` 
+
+2. Connect to the [App](http://localhost:5173).
+
+3. Connect your `MetaMask` wallet in order to create ballots and cast votes.
+
+
+# Local Setup
 
 1. Install [Foundry Suite](https://github.com/foundry-rs/foundry) and [NodeJs](https://nodejs.org/en/download/package-manager).
-
 2. Change directory to ```forge`` directory and start local Anvil node (keep this terminal running);
 ```shell
 $ cd forge;
@@ -36,9 +70,10 @@ Store deployed contract address.
 
 then save.
 
-6. Connect to app and start creating ballots and casting votes.
+6. Connect to the [App](http://localhost:5173) and start creating ballots and casting votes.
 
-# Testing
+7. Connect your `MetaMask` wallet in order to create ballots and cast votes.
+# Running tests suite
 
 1. At `forge` directory, simply run 
 
@@ -46,6 +81,7 @@ then save.
 $ forge test 
 ```
 
-# Known Issues
- - Apparently when sending EOA requests to Anvil nodes, `msg.sender` is not recognized, that may display voting options. Even though that happens, contract prevents double voting.
- - Contracts compiled by `forge` don't seem to yield verifiable `bytecode` for contracts, preventing verification. 
+# To be Implemented
+- Pagination for User's Contracts;
+- Verification when a new Ballot is created;
+- Callback for updating Ballot State when Ballot finishes.

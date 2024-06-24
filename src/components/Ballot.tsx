@@ -26,7 +26,6 @@ import { useBallotsContext } from "../hooks/useBallotsContext";
 import { DeserializedBallotData } from "../interfaces/deserialized-ballot-data.interface";
 import { BallotImpl } from "../models/ballot-impl.model";
 import { stringToHexColor } from "../functions/string-to-hex-color.function";
-import { getComplementaryHexColor } from "../functions/get-complementary-hex-color.function";
 import { BallotState } from "../enum/ballot-state.enum";
 import { BallotTimeline } from "./BallotTimeline";
 import { VotingTerm } from "../enum/voting-term.enum";
@@ -39,18 +38,21 @@ import {
   VotingResults,
 } from "../interfaces/voting-results.interface";
 import { getBallotState } from "../functions/get-ballot-state.function";
+import metamaskLogo from "/metamask.svg";
 
 export interface CampaignProps {
   address: string;
 }
 
 export const Ballot: FC<CampaignProps> = ({ address }) => {
-  const { selectedAccountAddress, getWeb3Provider } = useWeb3Context();
+  const { selectedAccountAddress, web3 } = useWeb3Context();
   const { instantiateBallot } = useBallotsContext();
   const [data, setData] = useState<BallotImpl | undefined>();
   const lazyLoaderRef: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const observerRef = useRef<IntersectionObserver>();
-  const contractRef = useRef<Contract<typeof BallotContract.abi>>();
+  const [ballotContract, setBallotContract] = useState<
+    Contract<typeof BallotContract.abi> | undefined
+  >();
   const [wasViewed, setWasViewed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [areDetailsOpen, setAreDetailsOpen] = useState(false);
@@ -90,10 +92,11 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
     const controller = new AbortController();
 
     if (!wasViewed || !selectedAccountAddress) return;
-    contractRef.current = instantiateBallot(address);
+    const contract = instantiateBallot(address);
 
-    if (!contractRef.current) return;
-    const subscription = contractRef.current.events.VoteCast();
+    if (!contract) return;
+    setBallotContract(contract);
+    const subscription = contract.events.VoteCast();
     const dataCb = async (_data: EventLog) => {
       if (!_data) return;
       const { accept, reject, total } = _data.returnValues[
@@ -125,7 +128,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
 
     setLoading(true);
 
-    contractRef.current.methods
+    contract.methods
       .getData({ from: selectedAccountAddress })
       .call<DeserializedBallotData>({ from: selectedAccountAddress })
       .then((_data) =>
@@ -154,19 +157,17 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
   }, []);
 
   const castAcceptVote = useCallback(async () => {
-    const provider = getWeb3Provider();
-
-    if (!provider || !contractRef.current || !selectedAccountAddress) return;
+    if (!selectedAccountAddress || !ballotContract) return;
 
     try {
       setLoadingVote(true);
-      const gasPrice = await provider.eth.getGasPrice();
+      const gasPrice = await web3.eth.getGasPrice();
       const tx: PayableCallOptions = {
         from: selectedAccountAddress,
         gasPrice: String(gasPrice),
       };
 
-      await contractRef.current.methods.castAcceptVote().send(tx);
+      await ballotContract.methods.castAcceptVote().send(tx);
       voteSuccessCallback();
     } catch (error) {
       fireToast("Error!", "Something went wrong", "error");
@@ -175,27 +176,20 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
     } finally {
       setLoadingVote(false);
     }
-  }, [
-    selectedAccountAddress,
-    getWeb3Provider,
-    voteSuccessCallback,
-    contractRef,
-    contractRef.current,
-  ]);
+  }, [web3, ballotContract, selectedAccountAddress, voteSuccessCallback]);
 
   const castRejectVote = useCallback(async () => {
-    const provider = getWeb3Provider();
-    if (!contractRef.current || !selectedAccountAddress) return;
+    if (!selectedAccountAddress || !ballotContract) return;
 
     try {
       setLoadingVote(true);
-      const gasPrice = await provider.eth.getGasPrice();
+      const gasPrice = await web3.eth.getGasPrice();
       const tx: PayableCallOptions = {
         from: selectedAccountAddress,
         gasPrice: String(gasPrice),
       };
 
-      await contractRef.current.methods.castRejectVote().send(tx);
+      await ballotContract.methods.castRejectVote().send(tx);
 
       voteSuccessCallback();
     } catch (error) {
@@ -205,16 +199,9 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
     } finally {
       setLoadingVote(false);
     }
-  }, [
-    selectedAccountAddress,
-    contractRef,
-    getWeb3Provider,
-    voteSuccessCallback,
-    contractRef.current,
-  ]);
+  }, [web3, ballotContract, selectedAccountAddress, voteSuccessCallback]);
 
   const bgColor = useMemo(() => stringToHexColor(address), [address]);
-  const textColor = useMemo(() => getComplementaryHexColor(bgColor), [bgColor]);
 
   return (
     <div
@@ -229,9 +216,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
                 className="title flex justify-center items-center"
                 style={{ backgroundColor: bgColor }}
               >
-                <p className="card-title p-4" style={{ color: textColor }}>
-                  {data.title}
-                </p>
+                <p className="card-title p-4">{data.title}</p>
               </div>
               <div className="card-body p-0">
                 {data.state === BallotState.PreliminaryAccepted && (
@@ -361,45 +346,55 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
                   </div>
                 </div>
                 <div className="card-actions justify-around p-4">
-                  {data.canVote ? (
-                    <>
-                      <div className="tooltip" data-tip="NAY!">
-                        <button
-                          className="btn btn-circle btn-error btn-outline group"
-                          onClick={castRejectVote}
-                          disabled={loadingVote}
-                        >
-                          {loadingVote ? (
-                            <span className="loading loading-ball loading-xs"></span>
-                          ) : (
-                            <FontAwesomeIcon
-                              className="text-lg text-error group-hover:text-neutral"
-                              icon={faThumbsDown}
-                            />
-                          )}
-                        </button>
+                  {selectedAccountAddress ? (
+                    data.canVote ? (
+                      <>
+                        <div className="tooltip" data-tip="NAY!">
+                          <button
+                            className="btn btn-circle btn-error btn-outline group"
+                            onClick={castRejectVote}
+                            disabled={loadingVote}
+                          >
+                            {loadingVote ? (
+                              <span className="loading loading-ball loading-xs"></span>
+                            ) : (
+                              <FontAwesomeIcon
+                                className="text-lg text-error group-hover:text-neutral"
+                                icon={faThumbsDown}
+                              />
+                            )}
+                          </button>
+                        </div>
+                        <div className="tooltip" data-tip="YAY!">
+                          <button
+                            className="btn btn-circle btn-success btn-outline group"
+                            onClick={castAcceptVote}
+                            disabled={loadingVote}
+                          >
+                            {loadingVote ? (
+                              <span className="loading loading-ball loading-xs"></span>
+                            ) : (
+                              <FontAwesomeIcon
+                                className="text-lg text-success group-hover:text-neutral"
+                                icon={faThumbsUp}
+                              />
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        role="alert"
+                        className="flex alert alert-success p-2"
+                      >
+                        <FontAwesomeIcon icon={faCheckToSlot} />
+                        <span>Your vote has been cast already.</span>
                       </div>
-                      <div className="tooltip" data-tip="YAY!">
-                        <button
-                          className="btn btn-circle btn-success btn-outline group"
-                          onClick={castAcceptVote}
-                          disabled={loadingVote}
-                        >
-                          {loadingVote ? (
-                            <span className="loading loading-ball loading-xs"></span>
-                          ) : (
-                            <FontAwesomeIcon
-                              className="text-lg text-success group-hover:text-neutral"
-                              icon={faThumbsUp}
-                            />
-                          )}
-                        </button>
-                      </div>
-                    </>
+                    )
                   ) : (
-                    <div role="alert" className="flex alert alert-success p-2">
-                      <FontAwesomeIcon icon={faCheckToSlot} />
-                      <span>Your vote has been cast already.</span>
+                    <div role="alert" className="flex alert alert-warning p-2">
+                      <img className="metamask-logo" src={metamaskLogo} />
+                      <span>Connect your wallet in order to vote.</span>
                     </div>
                   )}
                 </div>

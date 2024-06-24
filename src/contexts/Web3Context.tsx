@@ -1,12 +1,10 @@
 import {
   FC,
-  MutableRefObject,
   ReactNode,
   createContext,
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { Web3ConnectionStatus } from "../enum/web3-connection-status.enum";
@@ -33,8 +31,8 @@ export interface Web3ContextType {
   web3Status: Web3ConnectionStatus;
   connectToMetaMask: () => Promise<void>;
   selectAddressByIndex: (i: number) => void;
-  ballotsManagerRef: MutableRefObject<Contract<typeof BallotsManager.abi>>;
-  getWeb3Provider: () => Web3<RegisteredSubscription>;
+  web3: Web3<RegisteredSubscription>;
+  ballotsManager: Contract<typeof BallotsManager.abi>;
 }
 
 export const Web3Context = createContext<Web3ContextType | undefined>(
@@ -44,15 +42,12 @@ export const Web3Context = createContext<Web3ContextType | undefined>(
 export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
   children,
 }) => {
-  const web3ProviderRef = useRef<Web3>(
-    new Web3(new HttpProvider(import.meta.env.VITE_PROVIDER_RPC as string))
+  const [web3, setWeb3] = useState<Web3>(
+    new Web3(new HttpProvider(import.meta.env.VITE_PROVIDER_RPC))
   );
-
-  const ballotsManagerRef: MutableRefObject<
-    Contract<typeof BallotsManager.abi>
-  > = useRef<Contract<typeof BallotsManager.abi>>(
+  const [ballotsManager, setBallotsManager] = useState(
     instantiateContract(
-      web3ProviderRef.current,
+      web3,
       BallotsManager.abi,
       import.meta.env.VITE_BALLOTS_MANAGER_ADDR
     )
@@ -83,9 +78,9 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!web3ProviderRef || !web3ProviderRef.current) return;
-    const provider = web3ProviderRef.current.provider;
-    if (!provider || !isMetaMaskConnected) return;
+    if (!web3 || !isMetaMaskConnected) return;
+    const provider = web3.provider;
+    if (!provider) return;
 
     const accountsChangedCb: Web3Eip1193ProviderEventCallback<string[]> = (
       accounts: string[]
@@ -114,12 +109,7 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
       provider.removeListener("connect", connectCb);
       provider.removeListener("chainChanged", chainChangedCb);
     };
-  }, [web3ProviderRef, isMetaMaskConnected]);
-
-  const getWeb3Provider = useCallback(
-    () => web3ProviderRef.current,
-    [web3ProviderRef]
-  );
+  }, [web3, isMetaMaskConnected]);
 
   const connectToMetaMask = useCallback(async () => {
     const eth = (window as EthWindow).ethereum;
@@ -131,10 +121,10 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
     try {
       setWeb3Status(Web3ConnectionStatus.Connecting);
       await eth.request({ method: "eth_requestAccounts" });
+      const web3 = new Web3(eth);
+      setWeb3(web3);
       setIsMetaMaskConnected(true);
-      web3ProviderRef.current = new Web3(eth);
-      const web3 = web3ProviderRef.current;
-      ballotsManagerRef.current = instantiateContract(
+      const ballotsManager = instantiateContract(
         web3,
         BallotsManager.abi,
         import.meta.env.VITE_BALLOTS_MANAGER_ADDR
@@ -142,6 +132,7 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
 
       const accounts = await web3.eth.getAccounts();
       setWalletAccounts(accounts);
+      setBallotsManager(ballotsManager);
       // sets to default account, falls back to first available account, if any
       setSelectedAccountAddress(web3.eth.defaultAccount || accounts[0]);
 
@@ -198,22 +189,22 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
 
   const value = useMemo<Web3ContextType>(
     () => ({
-      getWeb3Provider,
+      ballotsManager,
       connectToMetaMask,
       selectedAccountAddress,
-      walletAccounts,
-      web3Status,
       selectAddressByIndex,
-      ballotsManagerRef,
+      walletAccounts,
+      web3,
+      web3Status,
     }),
     [
-      getWeb3Provider,
+      ballotsManager,
       connectToMetaMask,
       selectedAccountAddress,
-      walletAccounts,
-      web3Status,
       selectAddressByIndex,
-      ballotsManagerRef,
+      walletAccounts,
+      web3,
+      web3Status,
     ]
   );
 

@@ -3,8 +3,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { FC, MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { useBallotsContext } from "../hooks/useBallotsContext";
 import { Ballot } from "../components/Ballot";
+import { useWeb3Context } from "../hooks/useWeb3Context";
+import metamaskLogo from "/metamask.svg";
+
 
 export const Home: FC = () => {
+  const { selectedAccountAddress } = useWeb3Context();
   const {
     loadingBallotsAddresses,
     ballotsAddresses,
@@ -76,10 +80,17 @@ export const Home: FC = () => {
   return (
     <div className="container mx-auto mt-6">
       {!ballotsAddresses.length ? (
-        <div role="alert" className="alert w-auto m-8">
-          <FontAwesomeIcon icon={faInfoCircle} />
-          <span>No ballots were found</span>
-        </div>
+        selectedAccountAddress ? (
+          <div role="alert" className="alert w-auto m-8">
+            <FontAwesomeIcon icon={faInfoCircle} />
+            <span>No ballots were found</span>
+          </div>
+        ) : (
+          <div role="alert" className="alert alert-warning w-auto m-8">
+            <img className="metamask-logo" src={metamaskLogo} />
+            <span>Connect to MetaMask to fetch ballots</span>
+          </div>
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {ballotsAddresses.map((address) => (

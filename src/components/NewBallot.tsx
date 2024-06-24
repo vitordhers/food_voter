@@ -11,7 +11,6 @@ import { NewBallotTimeline } from "./NewBallotTimeline";
 import { useUiContext } from "../hooks/useUiContext";
 import { useWeb3Context } from "../hooks/useWeb3Context";
 import { fireToast } from "../functions/fire-toast.function";
-import { useBallotsContext } from "../hooks/useBallotsContext";
 import { PayableCallOptions } from "web3";
 
 interface FormValues {
@@ -33,8 +32,7 @@ export const NewBallot = () => {
   const { isCreatingNewBallot, setIsCreatingNewBallot, closeNewBallotModal } =
     useUiContext();
 
-  const { selectedAccountAddress, getWeb3Provider } = useWeb3Context();
-  const { getBallotsManager } = useBallotsContext();
+  const { selectedAccountAddress, web3, ballotsManager } = useWeb3Context();
 
   const markAsTouched = useCallback(
     (field: keyof FormValues) => {
@@ -47,23 +45,20 @@ export const NewBallot = () => {
 
   const onSubmit: SubmitHandler<FormValues> = useCallback(
     async ({ title, description }) => {
-      const contract = getBallotsManager();
-      const provider = getWeb3Provider();
-
-      if (!provider || !contract || !selectedAccountAddress) return;
+      if (!web3 || !ballotsManager || !selectedAccountAddress) return;
 
       try {
         setIsCreatingNewBallot(true);
-        const gasPrice = await provider.eth.getGasPrice();
+        const gasPrice = await web3.eth.getGasPrice();
 
         const tx: PayableCallOptions = {
           from: selectedAccountAddress,
           gasPrice: String(gasPrice),
         };
 
-        const estimatedGas = await provider.eth.estimateGas(tx);
+        const estimatedGas = await web3.eth.estimateGas(tx);
         console.log({ estimatedGas });
-        const txResult = await contract.methods
+        const txResult = await ballotsManager.methods
           .createBallot(title, description)
           .send(tx);
 
@@ -85,12 +80,12 @@ export const NewBallot = () => {
       }
     },
     [
+      ballotsManager,
+      closeNewBallotModal,
       reset,
       selectedAccountAddress,
-      closeNewBallotModal,
-      getBallotsManager,
       setIsCreatingNewBallot,
-      getWeb3Provider,
+      web3,
     ]
   );
 
