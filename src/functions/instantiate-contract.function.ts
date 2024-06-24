@@ -1,4 +1,4 @@
-import Web3, { Address, ContractAbi } from "web3";
+import Web3, { Address, ContractAbi, ContractInitOptions } from "web3";
 import { RegisteredSubscription } from "web3-eth";
 
 export const instantiateContract = <Abi extends ContractAbi>(
@@ -6,5 +6,6 @@ export const instantiateContract = <Abi extends ContractAbi>(
   abi: Abi,
   address: Address
 ) => {
-  return new web3.eth.Contract(abi, address);
+  const options: ContractInitOptions = { syncWithContext: true };
+  return new web3.eth.Contract(abi, address, options);
 };

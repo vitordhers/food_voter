@@ -27,6 +27,7 @@ export const NewBallot = () => {
     getValues,
     setValue,
     trigger,
+    reset,
   } = useForm<FormValues>();
 
   const { isCreatingNewBallot, setIsCreatingNewBallot, closeNewBallotModal } =
@@ -53,9 +54,11 @@ export const NewBallot = () => {
 
       try {
         setIsCreatingNewBallot(true);
+        const gasPrice = await provider.eth.getGasPrice();
 
         const tx: PayableCallOptions = {
           from: selectedAccountAddress,
+          gasPrice: String(gasPrice),
         };
 
         const txResult = await contract.methods
@@ -65,7 +68,7 @@ export const NewBallot = () => {
         let toastHtml = `<p><b>Hash:</b>${txResult.transactionHash}<p><br />`;
         toastHtml += `<p><b>Ballot Address: </b>${txResult.events?.NewBallot.address}</p>`;
         fireToast("Ballot created!", toastHtml, "success");
-
+        reset();
         closeNewBallotModal();
       } catch (error) {
         fireToast(
@@ -74,12 +77,13 @@ export const NewBallot = () => {
           "error"
         );
 
-        console.error(error);
+        console.error({ error });
       } finally {
         setIsCreatingNewBallot(false);
       }
     },
     [
+      reset,
       selectedAccountAddress,
       closeNewBallotModal,
       getBallotsManager,

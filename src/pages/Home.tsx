@@ -29,23 +29,27 @@ export const Home: FC = () => {
     if (!anchorRef || !anchorRef.current || !ballotsAddresses.length) return;
     const loader = anchorRef.current;
 
+    if (allAddressPaginated) {
+      observerRef.current?.unobserve(loader);
+      observerRef.current?.disconnect();
+      return () => {
+        if (!observerRef || !observerRef.current) return;
+        observerRef.current.unobserve(loader);
+        observerRef.current.disconnect();
+      };
+    }
     observerRef.current = new IntersectionObserver(
-      (entries, observer) => {
+      (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            if (allAddressPaginated) {
-              observer.unobserve(loader);
-              observer.disconnect();
-              return;
-            }
-            setPagination((p) => ({
-              ...p,
-              currentPageIndex:
-                p.currentPageIndex === undefined
-                  ? undefined
-                  : p.currentPageIndex + 1,
-            }));
-          }
+          if (!entry.isIntersecting) return;
+          if (loadingBallotsAddresses) return;
+          setPagination((p) => ({
+            ...p,
+            currentPageIndex:
+              p.currentPageIndex === undefined
+                ? undefined
+                : p.currentPageIndex + 1,
+          }));
         });
       },
       {
@@ -62,7 +66,12 @@ export const Home: FC = () => {
       observerRef.current.unobserve(loader);
       observerRef.current.disconnect();
     };
-  }, [allAddressPaginated, ballotsAddresses, setPagination]);
+  }, [
+    allAddressPaginated,
+    loadingBallotsAddresses,
+    ballotsAddresses,
+    setPagination,
+  ]);
 
   return (
     <div className="container mx-auto mt-6">
@@ -84,17 +93,18 @@ export const Home: FC = () => {
           Loading Ballots
         </div>
       )}
-      {allAddressPaginated ? (
-        <div role="alert" className="alert">
+      {allAddressPaginated && (
+        <div role="alert" className="alert m-4">
           <span>All ballots have been loaded.</span>
         </div>
-      ) : (
+      )}
+      {pagination.maxPageIndex ? (
         <div
           ref={anchorRef}
           id="pagination-anchor"
           className="w-full min-h-10"
         ></div>
-      )}
+      ) : null}
     </div>
   );
 };

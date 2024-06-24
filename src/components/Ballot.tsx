@@ -44,7 +44,7 @@ export interface CampaignProps {
 }
 
 export const Ballot: FC<CampaignProps> = ({ address }) => {
-  const { selectedAccountAddress } = useWeb3Context();
+  const { selectedAccountAddress, getWeb3Provider } = useWeb3Context();
   const { instantiateBallot } = useBallotsContext();
   const [data, setData] = useState<BallotImpl | undefined>();
   const lazyLoaderRef: MutableRefObject<HTMLDivElement | null> = useRef(null);
@@ -53,6 +53,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
   const [wasViewed, setWasViewed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [areDetailsOpen, setAreDetailsOpen] = useState(false);
+  const [loadingVote, setLoadingVote] = useState(false);
 
   useEffect(() => {
     if (!lazyLoaderRef || !lazyLoaderRef.current) return;
@@ -60,7 +61,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
 
     observerRef.current = new IntersectionObserver(
       (entries, observer) => {
-        console.log({ entries });
+        // console.log({ entries });
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
           setWasViewed(true);
@@ -85,6 +86,8 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     if (!wasViewed || !selectedAccountAddress) return;
     contractRef.current = instantiateBallot(address);
 
@@ -95,6 +98,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
       const { accept, reject, total } = data.returnValues[
         "results"
       ] as DeserializedVotingResults;
+      console.log("@@@ DATA CB", { accept, reject, total });
       const votingResults: VotingResults = {
         accept: Number(accept),
         reject: Number(reject),
@@ -115,7 +119,11 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
     contractRef.current.methods
       .getData({ from: selectedAccountAddress })
       .call<DeserializedBallotData>({ from: selectedAccountAddress })
-      .then((data) => setData(new BallotImpl(address, data)))
+      .then((data) =>
+        !controller.signal.aborted
+          ? setData(new BallotImpl(address, data))
+          : undefined
+      )
       .catch((error) => console.error("Ballot", { error }))
       .finally(() => setLoading(false));
   }, [instantiateBallot, address, setData, wasViewed, selectedAccountAddress]);
@@ -125,12 +133,23 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
     []
   );
 
+  const voteSuccessCallback = useCallback(() => {
+    fireToast("Success!", "Your accept vote was cast successfully", "success");
+
+    setData((b) => (b ? { ...b, canVote: false } : undefined));
+  }, []);
+
   const castAcceptVote = useCallback(async () => {
-    if (!contractRef.current || !selectedAccountAddress) return;
+    const provider = getWeb3Provider();
+
+    if (!provider || !contractRef.current || !selectedAccountAddress) return;
 
     try {
+      setLoadingVote(true);
+      const gasPrice = await provider.eth.getGasPrice();
       const tx: PayableCallOptions = {
         from: selectedAccountAddress,
+        gasPrice: String(gasPrice),
       };
 
       await contractRef.current.methods.castAcceptVote().send(tx);
@@ -139,15 +158,27 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
       fireToast("Error!", "Something went wrong", "error");
 
       console.error("castAcceptVote", error);
+    } finally {
+      setLoadingVote(false);
     }
-  }, [selectedAccountAddress, contractRef, contractRef.current]);
+  }, [
+    selectedAccountAddress,
+    getWeb3Provider,
+    voteSuccessCallback,
+    contractRef,
+    contractRef.current,
+  ]);
 
   const castRejectVote = useCallback(async () => {
+    const provider = getWeb3Provider();
     if (!contractRef.current || !selectedAccountAddress) return;
 
     try {
+      setLoadingVote(true);
+      const gasPrice = await provider.eth.getGasPrice();
       const tx: PayableCallOptions = {
         from: selectedAccountAddress,
+        gasPrice: String(gasPrice),
       };
 
       await contractRef.current.methods.castRejectVote().send(tx);
@@ -157,14 +188,16 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
       fireToast("Error!", "Something went wrong", "error");
 
       console.error("castAcceptVote", error);
+    } finally {
+      setLoadingVote(false);
     }
-  }, [selectedAccountAddress, contractRef, contractRef.current]);
-
-  const voteSuccessCallback = useCallback(() => {
-    fireToast("Success!", "Your accept vote was cast successfully", "success");
-
-    setData((b) => (b ? { ...b, canVote: false } : undefined));
-  }, []);
+  }, [
+    selectedAccountAddress,
+    contractRef,
+    getWeb3Provider,
+    voteSuccessCallback,
+    contractRef.current,
+  ]);
 
   const bgColor = useMemo(() => stringToHexColor(address), [address]);
   const textColor = useMemo(() => getComplementaryHexColor(bgColor), [bgColor]);
@@ -182,7 +215,7 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
                 className="title flex justify-center items-center"
                 style={{ backgroundColor: bgColor }}
               >
-                <p className="card-title" style={{ color: textColor }}>
+                <p className="card-title p-4" style={{ color: textColor }}>
                   {data.title}
                 </p>
               </div>
@@ -320,22 +353,32 @@ export const Ballot: FC<CampaignProps> = ({ address }) => {
                         <button
                           className="btn btn-circle btn-error btn-outline group"
                           onClick={castRejectVote}
+                          disabled={loadingVote}
                         >
-                          <FontAwesomeIcon
-                            className="text-lg text-error group-hover:text-neutral"
-                            icon={faThumbsDown}
-                          />
+                          {loadingVote ? (
+                            <span className="loading loading-ball loading-xs"></span>
+                          ) : (
+                            <FontAwesomeIcon
+                              className="text-lg text-error group-hover:text-neutral"
+                              icon={faThumbsDown}
+                            />
+                          )}
                         </button>
                       </div>
                       <div className="tooltip" data-tip="YAY!">
                         <button
                           className="btn btn-circle btn-success btn-outline group"
                           onClick={castAcceptVote}
+                          disabled={loadingVote}
                         >
-                          <FontAwesomeIcon
-                            className="text-lg text-success group-hover:text-neutral"
-                            icon={faThumbsUp}
-                          />
+                          {loadingVote ? (
+                            <span className="loading loading-ball loading-xs"></span>
+                          ) : (
+                            <FontAwesomeIcon
+                              className="text-lg text-success group-hover:text-neutral"
+                              icon={faThumbsUp}
+                            />
+                          )}
                         </button>
                       </div>
                     </>

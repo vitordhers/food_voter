@@ -110,9 +110,9 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
     provider.on("chainChanged", chainChangedCb);
 
     return () => {
-      // provider.removeListener("accountsChanged", accountsChangedCb);
-      // provider.removeListener("connect", connectCb);
-      // provider.removeListener("chainChanged", chainChangedCb);
+      provider.removeListener("accountsChanged", accountsChangedCb);
+      provider.removeListener("connect", connectCb);
+      provider.removeListener("chainChanged", chainChangedCb);
     };
   }, [web3ProviderRef, isMetaMaskConnected]);
 
@@ -134,7 +134,6 @@ export const Web3ContextProvider: FC<Web3ContextProviderProps> = ({
       setIsMetaMaskConnected(true);
       web3ProviderRef.current = new Web3(eth);
       const web3 = web3ProviderRef.current;
-
       ballotsManagerRef.current = instantiateContract(
         web3,
         BallotsManager.abi,

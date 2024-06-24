@@ -86,6 +86,8 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
   }, [selectedAccountAddress, ballotsManagerRef]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const runPagination = async () => {
       const ballotsManager = ballotsManagerRef.current;
       const { currentPageIndex, maxPageIndex } = pagination;
@@ -95,10 +97,11 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
       setLoadingBallotsAddresses(true);
 
       const startAt = currentPageIndex * PAGINATION_SIZE;
+
       try {
         const newAddresses = await ballotsManager.methods
           .paginateBallots(startAt)
-          .call<string[]>();
+          .call<string[]>({ from: selectedAccountAddress });
 
         setBallotsAddresses((addresses) => [...addresses, ...newAddresses]);
       } catch (error) {
@@ -109,18 +112,25 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     };
 
     runPagination();
-  }, [pagination, ballotsManagerRef]);
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedAccountAddress, pagination, ballotsManagerRef]);
 
   // initial pagination
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchBallotsLength = async () => {
       const ballotsManager = ballotsManagerRef.current;
       if (!ballotsManager) return;
       try {
+        if (controller.signal.aborted) return;
         setLoadingBallotsAddresses(true);
         const totalBallotsBN = await ballotsManager.methods
           .currentBallotIdArrayLikeLength()
-          .call<bigint>();
+          .call<bigint>({ from: selectedAccountAddress });
 
         const totalBallots = Number(totalBallotsBN);
         if (!totalBallots) return;
@@ -133,7 +143,7 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
         if (maxPageIndex < 0) {
           maxPageIndex = 0;
         }
-        console.log("INITIAL ", { maxPageIndex });
+        if (controller.signal.aborted) return;
         setPagination({ currentPageIndex: 0, maxPageIndex });
       } catch (error) {
         console.error("currentBallotIdArrayLikeLength error", { error });
@@ -143,7 +153,11 @@ export const BallotsContextProvider: FC<BallotsContextProviderProps> = ({
     };
 
     fetchBallotsLength();
-  }, [ballotsManagerRef]);
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedAccountAddress, ballotsManagerRef]);
 
   const getBallotsManager = useCallback(
     () => ballotsManagerRef.current,
